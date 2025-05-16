@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "601012198978",
+    "project_id": "tick-detection",
+    "storage_bucket": "tick-detection.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:601012198978:android:5820c5155c3ddde50c57db",
+        "android_client_info": {
+          "package_name": "com.example.flutter_project"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB2TwgLMJRJgRtM6vNrM7KqvQoMAwn2fiY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
