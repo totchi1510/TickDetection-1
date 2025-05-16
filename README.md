@@ -2,7 +2,7 @@
 
 2. classification
 
-3. Application
+3. Application  
    3.1 flutter_project
        You need to install Flutter.  
        https://docs.flutter.dev/get-started/install
