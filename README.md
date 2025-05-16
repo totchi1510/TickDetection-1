@@ -1,21 +1,67 @@
-1. data preprocess
+# Overview
 
-2. classification
+## 1. Data preprocess
 
-3. Application  
+## 2. Classification
+
+##### Overview
+
+This project performs image classification of tick species using a MobileNetV2 model. Training and evaluation are conducted on Google Colab with data stored in Google Drive.
+
+##### Use Google Colab
+
+Run the provided notebook in Google Colab for training and inference.
+
+##### Mount Google Drive
+
+To access your dataset and store trained models, mount your Google Drive with:
+
+```python
+from google.colab import drive
+drive.mount('/content/drive')
+```
+
+##### Expected File Structure
+
+```
+classification/
+└── data/
+    ├── train/
+    │   ├── 1/  # Amblyomma (blood-fed)
+    │   ├── 2/  # Amblyomma (non-fed)
+    │   ├── 3/  # Haemaphysalis
+    │   └── 4/  # Ixodes
+    └── val/
+        ├── 1/  # Amblyomma (blood-fed)
+        ├── 2/  # Amblyomma (non-fed)
+        ├── 3/  # Haemaphysalis
+        └── 4/  # Ixodes
+```
+
+Each class folder should contain images belonging to the respective tick category.
+
+###### Trained Model Output
+
+After training, the model will be saved as:
+
+```
+classification/
+└── saved_model/
+    └── model.pth
+```
+
+## 3. Application
    3.1 flutter_project
-       You need to install Flutter.  
+       You need to install Flutter.
        https://docs.flutter.dev/get-started/install
 
-   3.2 django_prediction_API  
-     ```pip install django djangorestframework pillow torch torchvision```
+   3.2 django_prediction_API
+     pip install django djangorestframework pillow torch torchvision
 
-   How to run the app  
-   1. Execute the following comannd.  
-      ```
-      cd django_prediction_API  
+   How to run the app
+   1. Execute the following comannd.
+      cd django_prediction_API
       python manage.py runserver
-      ```
    2. Start simulator
    3. Start flutter app.
 
