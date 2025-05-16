@@ -2,7 +2,7 @@
 
 ## 2. Classification
 
-#### Overview
+##### Overview
 
 This project performs image classification of tick species using a MobileNetV2 model. Training and evaluation are conducted on Google Colab with data stored in Google Drive.
 
