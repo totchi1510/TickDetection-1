@@ -11,7 +11,7 @@
      ```pip install django djangorestframework pillow torch torchvision```
 
    How to run the app  
-   1. Execute the following comannd.
+   1. Execute the following comannd.  
       ```cd django_prediction_API```  
       ```python manage.py runserver```
    2. Start simulator
