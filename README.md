@@ -2,15 +2,15 @@
 
 2. classification
 
-## Overview
+# Overview
 
 This project performs image classification of tick species using a MobileNetV2 model. Training and evaluation are conducted on Google Colab with data stored in Google Drive.
 
-### 1. Use Google Colab
+# 1. Use Google Colab
 
 Run the provided notebook in Google Colab for training and inference.
 
-### 2. Mount Google Drive
+# 2. Mount Google Drive
 
 To access your dataset and store trained models, mount your Google Drive with:
 
@@ -19,7 +19,7 @@ from google.colab import drive
 drive.mount('/content/drive')
 ```
 
-### 3. Expected File Structure
+# 3. Expected File Structure
 
 ```
 classification/
@@ -38,7 +38,7 @@ classification/
 
 Each class folder should contain images belonging to the respective tick category.
 
-### 4. Trained Model Output
+# 4. Trained Model Output
 
 After training, the model will be saved as:
 
