@@ -12,8 +12,10 @@
 
    How to run the app  
    1. Execute the following comannd.  
-      ```cd django_prediction_API```  
-      ```python manage.py runserver```
+      ```
+      cd django_prediction_API  
+      python manage.py runserver
+      ```
    2. Start simulator
    3. Start flutter app.
 
