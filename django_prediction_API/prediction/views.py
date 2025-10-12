@@ -1,60 +1,70 @@
-from rest_framework.views import APIView
+from django.conf import settings
+from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
-from PIL import Image
-import torch
-import torch.nn.functional as F
-from torchvision import transforms
-from django.conf import settings
-import os
-from torchvision.models import mobilenet_v2
-import torch.nn as nn
-from django.http import JsonResponse
+from inference_sdk import InferenceHTTPClient
+from rest_framework.views import APIView
+import tempfile
 
-# Create your views here.
+# === Roboflow configuration ===
+ROBOFLOW_API_URL = getattr(settings, "ROBOFLOW_API_URL", "https://serverless.roboflow.com")
+ROBOFLOW_API_KEY = getattr(settings, "ROBOFLOW_API_KEY", None)
+ROBOFLOW_WORKSPACE = getattr(settings, "ROBOFLOW_WORKSPACE", "yuto-i74h0")
+ROBOFLOW_WORKFLOW_ID = getattr(settings, "ROBOFLOW_WORKFLOW_ID", "detect-and-classify-3")
 
-LABELS = ['Amblyomma(Unfed)', 'Amblyomma(Blood-fed)', 'Haemaphysails', 'Ixodes']
-MODEL_PATH = os.path.join(settings.BASE_DIR, 'prediction', 'mobilenet_v2_weights.pth')
+if not ROBOFLOW_API_KEY:
+    raise RuntimeError("ROBOFLOW_API_KEY is not configured. Set it in settings or environment.")
 
-# === define and load Model ===
-NUM_CLASSES = 4
-model = mobilenet_v2(weights=None)
-model.classifier[1] = nn.Linear(model.last_channel, 4)
-model.load_state_dict(torch.load(MODEL_PATH, map_location="cpu"))
-model.eval()
+client = InferenceHTTPClient(
+    api_url=ROBOFLOW_API_URL,
+    api_key=ROBOFLOW_API_KEY,
+)
 
-# === preprocess ===
-preprocess = transforms.Compose([
-    transforms.Resize((224, 224)),
-    transforms.ToTensor(),
-    transforms.Normalize([0.485, 0.456, 0.406],
-                         [0.229, 0.224, 0.225]),
-])
+
+def _extract_top_label(result):
+    """Attempt to pull the primary class label out of the workflow response."""
+    results = result.get("results") or []
+    if not results:
+        return None
+
+    predictions = results[0].get("predictions") or []
+    if not predictions:
+        return None
+
+    top_prediction = predictions[0]
+    if isinstance(top_prediction, dict):
+        # classification workflows typically expose `class` or `label`
+        return top_prediction.get("class") or top_prediction.get("label")
+    return None
+
 
 @method_decorator(csrf_exempt, name='dispatch')
 class PredictView(APIView):
     def post(self, request):
         try:
-            uploaded_file = request.FILES.get('file')
-            if uploaded_file:
-                image = Image.open(uploaded_file).convert("RGB")
-                input_tensor = preprocess(image).unsqueeze(0)
+            uploaded_file = request.FILES.get("file")
+            if not uploaded_file:
+                return JsonResponse({"error": "No file supplied"}, status=400)
 
-                with torch.no_grad():
-                    output = model(input_tensor)
-                    probs = F.softmax(output, dim=1)
-                    pred_class = torch.argmax(probs, dim=1).item()
+            # Persist the upload to a temporary file so the SDK can read it.
+            with tempfile.NamedTemporaryFile(suffix=".jpg") as tmp:
+                for chunk in uploaded_file.chunks():
+                    tmp.write(chunk)
+                tmp.flush()
 
-                pred_label = LABELS[pred_class]
-                return JsonResponse({
-                    "prediction": pred_label,
-                })
+                result = client.run_workflow(
+                    workspace_name=ROBOFLOW_WORKSPACE,
+                    workflow_id=ROBOFLOW_WORKFLOW_ID,
+                    images={"image": tmp.name},
+                    use_cache=True,
+                )
 
-            else:
-                return JsonResponse({
-                    "prediction": 'Error',
-                })
+            pred_label = _extract_top_label(result) or "Unknown"
+            response_payload = {
+                "prediction": pred_label,
+                "raw_result": result,
+            }
+            return JsonResponse(response_payload)
 
-        except Exception as e:
-            return JsonResponse({"error": str(e)}, status=400)
-    
+        except Exception as exc:
+            return JsonResponse({"error": str(exc)}, status=400)
