@@ -133,3 +133,9 @@ REST_FRAMEWORK = {
         # 'rest_framework.authentication.SessionAuthentication',
     ],
 }
+
+# === Roboflow ===
+ROBOFLOW_API_URL = os.environ.get('ROBOFLOW_API_URL', 'https://serverless.roboflow.com')
+ROBOFLOW_API_KEY = os.environ.get('ROBOFLOW_API_KEY')
+ROBOFLOW_WORKSPACE = os.environ.get('ROBOFLOW_WORKSPACE', 'yuto-i74h0')
+ROBOFLOW_WORKFLOW_ID = os.environ.get('ROBOFLOW_WORKFLOW_ID', 'detect-and-classify-3')
