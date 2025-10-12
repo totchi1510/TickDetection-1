@@ -21,20 +21,36 @@ client = InferenceHTTPClient(
 )
 
 
+def _iter_workflow_outputs(result):
+    """Normalise Roboflow workflow response to an iterable of output dicts."""
+    if isinstance(result, list):
+        return result
+    if isinstance(result, dict):
+        return result.get("results") or []
+    return []
+
+
 def _extract_top_label(result):
     """Attempt to pull the primary class label out of the workflow response."""
-    results = result.get("results") or []
-    if not results:
-        return None
+    for output in _iter_workflow_outputs(result):
+        predictions = output.get("predictions") or []
+        if not predictions:
+            continue
+        top_prediction = predictions[0]
+        if isinstance(top_prediction, dict):
+            # classification workflows typically expose `class` or `label`
+            label = top_prediction.get("class") or top_prediction.get("label")
+            if label:
+                return label
+    return None
 
-    predictions = results[0].get("predictions") or []
-    if not predictions:
-        return None
 
-    top_prediction = predictions[0]
-    if isinstance(top_prediction, dict):
-        # classification workflows typically expose `class` or `label`
-        return top_prediction.get("class") or top_prediction.get("label")
+def _extract_output_image(result):
+    """Retrieve the first available base64 encoded output image, if present."""
+    for output in _iter_workflow_outputs(result):
+        encoded = output.get("output_image")
+        if encoded:
+            return encoded
     return None
 
 
@@ -60,8 +76,10 @@ class PredictView(APIView):
                 )
 
             pred_label = _extract_top_label(result) or "Unknown"
+            output_image = _extract_output_image(result)
             response_payload = {
                 "prediction": pred_label,
+                "output_image": output_image,
                 "raw_result": result,
             }
             return JsonResponse(response_payload)
