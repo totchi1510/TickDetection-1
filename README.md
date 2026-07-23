@@ -1,5 +1,7 @@
 # Tick Detection Using Image Classification
 
+Hello
+
 This AI/ML project classifies tick species from microscope images to support medical and environmental research. It also helps users identify dangerous areas where ticks are commonly found. Users and researchers can upload tick images for automatic species identification. Additionally, the project features geolocation of tick findings on a map and integrates with Gemini to enable users to ask questions related to ticks and their risks.
 
 ## Project Overview
