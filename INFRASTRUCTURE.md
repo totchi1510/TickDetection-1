@@ -163,7 +163,7 @@
 イメージを「土台」と「アプリ」の2つに分けている。
 
 ```
-[土台イメージ]  asia-northeast1-docker.pkg.dev/global-sign-475613-j2/base/tick-runtime:v1
+[土台イメージ]  .../cloud-run-source-deploy/tick-runtime:v1
   python:3.11-slim
   + apt deps (libjpeg / libgl1 等)
   + pip install -r requirements.txt        ~2.9 GB
@@ -173,7 +173,7 @@
         │
         │ FROM
         ▼
-[アプリイメージ]  .../cloud-run-source-deploy/pred-api:<commit-sha>
+[アプリイメージ]  .../cloud-run-source-deploy/pred-api:<commit-sha>   ← 同じリポジトリ
   + COPY django_prediction_API              ~1 MB
         ↑ GitHub Actions が main への merge ごとにビルド
 ```
@@ -189,6 +189,19 @@
    コードの ~1MB だけになる。
 3. 予算 ¥1,000/月 に対して、AR のストレージ課金 ($0.10/GB/月) が支配的だった。
 
+**土台イメージとアプリイメージは同じリポジトリに置く。** 別リポジトリにすると、
+アプリイメージの push 時に土台のレイヤがクロスリポジトリ mount され、
+両方のリポジトリのサイズに計上される (実測で 3.1GB が二重計上された)。
+同一リポジトリなら重複はゼロになる。
+
+実測したレイヤの内訳 (アプリイメージ push 時):
+
+```
+Pushed              : 1   ← コードの層のみ
+Mounted from ...    : 9   ← 土台の層 (別リポジトリだったため mount)
+Layer already exists: 10
+```
+
 **土台イメージの作り直しが必要なケース**
 
 | 変更したもの | 土台の作り直し |
@@ -197,6 +210,21 @@
 | Dockerfile | 不要 |
 | `requirements.txt` | **必要** |
 | モデルの重み / classes.json | **必要** |
+
+### Artifact Registry の保持ポリシー
+
+[scripts/ar-cleanup-policy.json](scripts/ar-cleanup-policy.json) を
+`scripts/apply-ar-cleanup.sh` で適用する。Keep は Delete より優先される。
+
+| ルール | 対象 | 動作 |
+|---|---|---|
+| `keep-base-image` | `tick-runtime` | 常に保持（消すと以降のビルドが `FROM` で失敗する） |
+| `keep-recent-app-images` | `pred-api` 最新5世代 | 保持 |
+| `delete-untagged-after-7d` | タグ無し 7日超 | 削除 |
+| `delete-old-after-30d` | 上記で保持されない30日超 | 削除 |
+
+最後のルールが必要な理由: `deploy.yml` は毎ビルドで `:<コミットSHA>` を付けるため、
+アプリイメージは永久にタグ付きのまま残る。「タグ無しを削除」だけでは何も掃除されない。
 
 `requirements.txt` の変更は PR 上で警告が出る (`.github/workflows/ci.yml` の
 `base-image-guard`)。作り直しを忘れた場合、ビルドは成功するがコンテナ起動時に

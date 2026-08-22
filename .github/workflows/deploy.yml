@@ -24,7 +24,7 @@ env:
   AR_HOST: asia-northeast1-docker.pkg.dev
   IMAGE_REPO: asia-northeast1-docker.pkg.dev/global-sign-475613-j2/cloud-run-source-deploy/pred-api
   # 土台イメージ (依存 + モデル重み)。重みを更新したらここを上げる。
-  BASE_IMAGE: asia-northeast1-docker.pkg.dev/global-sign-475613-j2/base/tick-runtime:v1
+  BASE_IMAGE: asia-northeast1-docker.pkg.dev/global-sign-475613-j2/cloud-run-source-deploy/tick-runtime:v1
 
 jobs:
   deploy:

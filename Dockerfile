@@ -11,7 +11,7 @@
 
 # 土台イメージはタグで固定する。latest は使わない。
 # 重み・依存を更新したら v2, v3 と上げて、この既定値も更新する。
-ARG BASE_IMAGE=asia-northeast1-docker.pkg.dev/global-sign-475613-j2/base/tick-runtime:v1
+ARG BASE_IMAGE=asia-northeast1-docker.pkg.dev/global-sign-475613-j2/cloud-run-source-deploy/tick-runtime:v1
 FROM ${BASE_IMAGE}
 
 # アプリコード。ここだけが毎ビルドで変わる層。

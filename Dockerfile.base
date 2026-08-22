@@ -7,6 +7,10 @@
 # ビルドして Artifact Registry に push する。
 #   → scripts/build-base-image.sh
 #
+# 置き場所はアプリイメージと同じ Artifact Registry リポジトリ
+# (cloud-run-source-deploy) にする。別リポジトリに置くと、アプリイメージを
+# push したときに土台のレイヤが両リポジトリに計上され、容量が二重に見える。
+#
 # 作り直しが必要になるのは次の2ケースだけ:
 #   1. requirements.txt を変更した
 #   2. モデルの重み / classes.json を差し替えた

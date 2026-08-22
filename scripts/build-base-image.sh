@@ -18,7 +18,7 @@ set -euo pipefail
 
 PROJECT_ID="${PROJECT_ID:-global-sign-475613-j2}"
 REGION="${REGION:-asia-northeast1}"
-AR_REPO="${AR_REPO:-base}"
+AR_REPO="${AR_REPO:-cloud-run-source-deploy}"
 IMAGE_NAME="${IMAGE_NAME:-tick-runtime}"
 
 VERSION="${1:-}"
