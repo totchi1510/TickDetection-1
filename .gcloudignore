@@ -1,0 +1,25 @@
+.git
+.gitignore
+.gcloudignore
+venv
+.venv
+__pycache__
+*.pyc
+
+# secrets / local env
+.env*
+
+# Not needed in container (frontend, training notebooks)
+flutter_project/
+classification/
+*.ipynb
+README.md
+budget_killer/
+
+# Local test artifacts
+*.jpg
+*.png
+
+# Unused old model weights
+django_prediction_API/prediction/models/vit_ticks_fold*.pth
+django_prediction_API/prediction/models/resnet50_full.pth

@@ -1,0 +1,157 @@
+name: Deploy to Cloud Run
+
+# main が更新されたときだけ本番にデプロイする。
+# PR の時点では動かない (テストは ci.yml が担当)。
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# 連続 merge でデプロイが競合しないように直列化する。
+# 進行中のものはキャンセルせず、順番に流す。
+concurrency:
+  group: deploy-cloud-run
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write   # Workload Identity 連携に必須
+
+env:
+  PROJECT_ID: global-sign-475613-j2
+  REGION: asia-northeast1
+  SERVICE: pred-api
+  AR_HOST: asia-northeast1-docker.pkg.dev
+  IMAGE_REPO: asia-northeast1-docker.pkg.dev/global-sign-475613-j2/cloud-run-source-deploy/pred-api
+  # 土台イメージ (依存 + モデル重み)。重みを更新したらここを上げる。
+  BASE_IMAGE: asia-northeast1-docker.pkg.dev/global-sign-475613-j2/base/tick-runtime:v1
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # サービスアカウントの JSON キーは使わない。
+      # GitHub が発行する OIDC トークンを GCP が検証して短命な資格情報を返す。
+      - name: GCP に認証 (キーレス)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.WIF_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      # スモークテストでテスト画像を生成するために使う
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Artifact Registry の認証設定
+        run: gcloud auth configure-docker "$AR_HOST" --quiet
+
+      # 土台イメージの上にアプリコードを載せるだけなので、
+      # ここで増える層は数MBのコードだけ。重みは土台側にある。
+      - name: イメージをビルド
+        run: |
+          docker build \
+            --build-arg "BASE_IMAGE=${BASE_IMAGE}" \
+            -t "${IMAGE_REPO}:${GITHUB_SHA}" \
+            -t "${IMAGE_REPO}:latest" \
+            .
+
+      # push する前に、ビルドしたイメージが実際に起動してモデルを
+      # ロードできるかを確認する。壊れたイメージを本番に出さないため。
+      - name: コンテナのスモークテスト
+        run: |
+          set -euo pipefail
+          docker run -d --name smoke -p 8080:8080 \
+            -e DJANGO_SECRET_KEY=ci-smoke-test-key \
+            -e DJANGO_DEBUG=false \
+            -e DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1 \
+            "${IMAGE_REPO}:${GITHUB_SHA}"
+
+          echo "--- gunicorn の起動を待つ ---"
+          for i in $(seq 1 60); do
+            # curl は接続失敗時に "000" を stdout に出して非ゼロ終了する。
+            # ここで `|| echo 000` を足すと "000000" になり判定が壊れるので、
+            # 終了コードだけを潰す。
+            code="$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+                    http://localhost:8080/prediction/API/ 2>/dev/null)" || true
+            if [ "$code" != "000" ]; then
+              echo "起動しました (HTTP $code)"
+              break
+            fi
+            sleep 2
+          done
+          if [ "$code" = "000" ]; then
+            echo "::error::コンテナが起動しませんでした"
+            docker logs smoke
+            exit 1
+          fi
+
+          echo "--- 入力バリデーション (ファイル無し → 400) ---"
+          if [ "$code" != "400" ]; then
+            echo "::error::ファイル無しの POST で 400 が返りませんでした (HTTP $code)"
+            docker logs smoke
+            exit 1
+          fi
+
+          echo "--- モデルのロード確認 (無地画像を投げる) ---"
+          # 無地の画像なので YOLO は何も検出しない = 422 no_tick_detected が
+          # 返るのが正常。ここまで到達すれば torch / YOLO 重み / 分類器重み /
+          # classes.json のすべてが正しくロードされたことになる。
+          python -m pip install --quiet Pillow
+          python -c "from PIL import Image; Image.new('RGB',(64,64),(128,128,128)).save('/tmp/blank.jpg')"
+
+          body="$(curl -s --max-time 300 -w '\n%{http_code}' -X POST \
+                  -F file=@/tmp/blank.jpg http://localhost:8080/prediction/API/)"
+          status="$(echo "$body" | tail -n1)"
+          payload="$(echo "$body" | sed '$d')"
+          echo "HTTP $status"
+          echo "$payload"
+
+          case "$status" in
+            422|200)
+              echo "モデルのロードに成功しました" ;;
+            *)
+              echo "::error::モデルのロードに失敗した可能性があります (HTTP $status)"
+              docker logs smoke
+              exit 1 ;;
+          esac
+
+          docker logs smoke | tail -30
+          docker rm -f smoke
+
+      - name: イメージを push
+        run: |
+          docker push "${IMAGE_REPO}:${GITHUB_SHA}"
+          docker push "${IMAGE_REPO}:latest"
+
+      # --image だけを指定する。環境変数・シークレット・メモリ等の既存設定は
+      # そのまま引き継がれる。ここで全項目を並べると、書き間違い1つで
+      # 本番設定がリセットされるリスクがあるため、あえて指定しない。
+      # (サービス設定の正本は INFRASTRUCTURE.md)
+      - name: Cloud Run にデプロイ
+        run: |
+          gcloud run deploy "$SERVICE" \
+            --image "${IMAGE_REPO}:${GITHUB_SHA}" \
+            --region "$REGION" \
+            --project "$PROJECT_ID" \
+            --quiet
+
+      - name: デプロイ結果を確認
+        run: |
+          URL="$(gcloud run services describe "$SERVICE" --region "$REGION" \
+                 --project "$PROJECT_ID" --format='value(status.url)')"
+          REV="$(gcloud run services describe "$SERVICE" --region "$REGION" \
+                 --project "$PROJECT_ID" --format='value(status.latestReadyRevisionName)')"
+          echo "### デプロイ完了" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| 項目 | 値 |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| サービス | \`$SERVICE\` ($REGION) |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| リビジョン | \`$REV\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| イメージ | \`${IMAGE_REPO}:${GITHUB_SHA}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| 土台イメージ | \`${BASE_IMAGE}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| URL | $URL |" >> "$GITHUB_STEP_SUMMARY"

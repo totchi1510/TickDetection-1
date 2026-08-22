@@ -1,0 +1,17 @@
+[
+  {
+    "name": "delete-untagged-after-7d",
+    "action": { "type": "Delete" },
+    "condition": {
+      "tagState": "untagged",
+      "olderThan": "7d"
+    }
+  },
+  {
+    "name": "keep-recent-tagged",
+    "action": { "type": "Keep" },
+    "mostRecentVersions": {
+      "keepCount": 5
+    }
+  }
+]

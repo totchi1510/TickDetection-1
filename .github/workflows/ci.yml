@@ -1,0 +1,78 @@
+name: CI
+
+# PR ではテストだけを走らせる。デプロイも GCP 認証もしないので、
+# fork からの PR でも安全に動く。
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches-ignore: [main]
+
+jobs:
+  test:
+    name: Django tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # torch や ultralytics は入れない。views.py がモデルを遅延ロードするので、
+      # 軽い依存だけでテストが通る (数十秒で終わる)。
+      # torch や ultralytics は入れない。ただしバージョン指定は requirements.txt から
+      # 拾う。ここにハードコードすると、本番 (土台イメージ) と CI で別バージョンの
+      # Django をテストすることになり、CI が意味を失う。
+      - name: 依存をインストール (軽量のみ)
+        run: |
+          python -m pip install --upgrade pip
+          grep -E '^(Django|djangorestframework|django-cors-headers|Pillow|numpy)' \
+            requirements.txt | tee /tmp/ci-requirements.txt
+          pip install -r /tmp/ci-requirements.txt
+
+      - name: manage.py check
+        working-directory: django_prediction_API
+        env:
+          DJANGO_SECRET_KEY: ci-test-key-not-for-production
+          DJANGO_DEBUG: 'false'
+          DJANGO_ALLOWED_HOSTS: testserver,localhost
+        run: python manage.py check
+
+      - name: テスト実行
+        working-directory: django_prediction_API
+        env:
+          DJANGO_SECRET_KEY: ci-test-key-not-for-production
+          DJANGO_DEBUG: 'false'
+          DJANGO_ALLOWED_HOSTS: testserver,localhost
+        run: python manage.py test prediction -v 2
+
+  base-image-guard:
+    name: 土台イメージの作り直しが必要か
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # requirements.txt を変えると、土台イメージ (依存が焼かれている) を
+      # 作り直さない限り本番で ModuleNotFoundError になる。
+      # 気付かず merge するのを防ぐため、PR 上で警告を出す。
+      - name: requirements.txt の変更を検出
+        run: |
+          BASE="origin/${{ github.base_ref }}"
+          if git diff --name-only "$BASE"...HEAD | grep -qx 'requirements.txt'; then
+            echo "::warning title=土台イメージの作り直しが必要::requirements.txt が変更されています。merge 前に scripts/build-base-image.sh で新しいバージョンの土台イメージを作り、Dockerfile と deploy.yml の BASE_IMAGE を更新してください。"
+            echo "### ⚠️ requirements.txt が変更されています" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "依存は土台イメージに焼き込まれているため、このままだと本番で \`ModuleNotFoundError\` になります。" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo '```bash' >> "$GITHUB_STEP_SUMMARY"
+            echo './scripts/build-base-image.sh v2   # 次のバージョン番号で' >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "requirements.txt は変更されていません。土台イメージの作り直しは不要です。"
+          fi

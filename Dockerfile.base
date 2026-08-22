@@ -1,0 +1,40 @@
+# =============================================================================
+# 土台イメージ (base image)
+#
+# 中身: システム依存 + pip 依存 (torch 等 ~2.9GB) + モデル重み (~130MB)
+#
+# このイメージは CI ではビルドしない。重みを含むため、手元から手動で
+# ビルドして Artifact Registry に push する。
+#   → scripts/build-base-image.sh
+#
+# 作り直しが必要になるのは次の2ケースだけ:
+#   1. requirements.txt を変更した
+#   2. モデルの重み / classes.json を差し替えた
+# =============================================================================
+FROM python:3.11-slim
+
+# Pillow / ultralytics (OpenCV) が要求する画像コーデックと共有ライブラリ
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        libjpeg-dev zlib1g-dev libgl1 \
+        libglib2.0-0 && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PORT=8080
+
+# 依存を先に入れる。この層が土台イメージの本体 (~2.9GB) で、
+# アプリイメージ側では一切作り直されない。
+COPY requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# モデル重みと classes.json。この土台イメージにだけ入り、GitHub には置かない。
+# classes.json は必ず重みと同じ場所に置く (クラス順のズレを防ぐため)。
+COPY weights/ /opt/models/
+
+# 重みの内容を後から確認できるようにしておく
+RUN ls -la /opt/models/

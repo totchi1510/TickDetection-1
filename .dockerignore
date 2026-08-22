@@ -1,0 +1,34 @@
+# アプリイメージは django_prediction_API/ だけを COPY するので、
+# それ以外は build context に送らない (CI の転送量とビルド時間を削る)
+
+.git
+.github
+.gitignore
+.dockerignore
+.gcloudignore
+
+# 重みは土台イメージ側にある。アプリイメージには絶対に入れない。
+weights/
+*.pt
+*.pth
+
+# 学習・フロントエンド・運用スクリプト (コンテナでは不要)
+classification/
+flutter_project/
+budget_killer/
+scripts/
+*.ipynb
+README.md
+INFRASTRUCTURE.md
+
+# ローカル成果物
+*.jpg
+*.jpeg
+*.png
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env*
+db.sqlite3
+Dockerfile.orig.bak

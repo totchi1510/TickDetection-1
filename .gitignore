@@ -1,0 +1,97 @@
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# ===== Django =====
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+
+# ===== Jupyter =====
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# ===== Flutter / Dart =====
+flutter_project/.dart_tool/
+flutter_project/.flutter-plugins
+flutter_project/.flutter-plugins-dependencies
+flutter_project/.packages
+flutter_project/.pub-cache/
+flutter_project/.pub/
+flutter_project/build/
+flutter_project/**/build/
+flutter_project/**/.dart_tool/
+flutter_project/**/Pods/
+flutter_project/**/.symlinks/
+flutter_project/**/Flutter/Flutter.framework
+flutter_project/**/Flutter/Flutter.podspec
+flutter_project/ios/Runner.xcworkspace/xcuserdata/
+flutter_project/ios/Runner.xcodeproj/xcuserdata/
+flutter_project/android/.gradle/
+flutter_project/android/captures/
+flutter_project/android/gradlew
+flutter_project/android/gradlew.bat
+flutter_project/android/local.properties
+flutter_project/android/**/GeneratedPluginRegistrant.java
+flutter_project/macos/Pods/
+flutter_project/macos/Flutter/ephemeral/
+flutter_project/linux/flutter/ephemeral/
+flutter_project/windows/flutter/ephemeral/
+
+# ===== Secrets / credentials =====
+*.pem
+*.key
+.env
+.env.*
+!.env.example
+service-account*.json
+gcp-key*.json
+google-services.json
+GoogleService-Info.plist
+
+# ===== IDE / OS =====
+.vscode/
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# ===== モデル重み =====
+# 重みは Git には置かない。土台イメージ (Artifact Registry) で配布する。
+#   ビルド:   scripts/build-base-image.sh
+#   取得:     scripts/fetch-weights.sh
+*.pt
+*.pth
+django_prediction_API/prediction/models/
+
+# 土台イメージビルド用のステージングディレクトリ
+weights/
+
+# 差し替え前のバックアップ (ローカル保持のみ)
+*.orig.bak
+
+# ルート直下のテスト画像 (研究用の実写。public repo には上げない)
+/*.jpg
+/*.jpeg
+/*.png
